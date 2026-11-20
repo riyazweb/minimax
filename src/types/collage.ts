@@ -28,7 +28,8 @@ export type TitleFontFamily =
   | 'Cormorant Garamond'
   | 'Bodoni Moda'
   | 'Plus Jakarta Sans';
-export type ExportFormat = 'png' | 'jpeg';
+export type ExportFormat = 'webp' | 'jpeg' | 'png';
+export type ExportCompression = 'compact' | 'high';
 export type ExportResolution = 2048 | 3200 | 4096;
 
 export interface CollageConfig {

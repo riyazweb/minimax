@@ -3,6 +3,7 @@ import { Download, RotateCcw } from 'lucide-react';
 import {
   CanvasAspect,
   CollageConfig,
+  ExportCompression,
   ExportFormat,
   ExportResolution,
   FitMode,
@@ -16,12 +17,16 @@ interface ControlSidebarProps {
   config: CollageConfig;
   resolution: ExportResolution;
   format: ExportFormat;
+  compression: ExportCompression;
+  cloudinarySafe: boolean;
   isExporting: boolean;
   exportSuccess: string | null;
   visibleSections?: 'all' | 'text-layout' | 'export';
   onChangeConfig: <K extends keyof CollageConfig>(key: K, value: CollageConfig[K]) => void;
   onChangeResolution: (res: ExportResolution) => void;
   onChangeFormat: (fmt: ExportFormat) => void;
+  onChangeCompression: (comp: ExportCompression) => void;
+  onChangeCloudinarySafe: (safe: boolean) => void;
   onExport: () => void;
   onResetSettings: () => void;
 }
@@ -45,12 +50,16 @@ export const ControlSidebar: React.FC<ControlSidebarProps> = ({
   config,
   resolution,
   format,
+  compression,
+  cloudinarySafe,
   isExporting,
   exportSuccess,
   visibleSections = 'all',
   onChangeConfig,
   onChangeResolution,
   onChangeFormat,
+  onChangeCompression,
+  onChangeCloudinarySafe,
   onExport,
   onResetSettings,
 }) => {
@@ -347,11 +356,12 @@ export const ControlSidebar: React.FC<ControlSidebarProps> = ({
             ))}
           </div>
 
-          <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-lg">
+          <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-lg">
             {(
               [
-                { value: 'png', label: 'PNG Lossless' },
-                { value: 'jpeg', label: 'JPG High' },
+                { value: 'webp', label: 'WebP Small' },
+                { value: 'jpeg', label: 'JPG HD' },
+                { value: 'png', label: 'PNG Raw' },
               ] as { value: ExportFormat; label: string }[]
             ).map((opt) => (
               <button
@@ -368,6 +378,40 @@ export const ControlSidebar: React.FC<ControlSidebarProps> = ({
               </button>
             ))}
           </div>
+
+          {format !== 'png' && (
+            <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-lg">
+              {(
+                [
+                  { value: 'compact', label: 'Compact HD' },
+                  { value: 'high', label: 'Max Detail' },
+                ] as { value: ExportCompression; label: string }[]
+              ).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => onChangeCompression(opt.value)}
+                  className={`min-h-[40px] lg:min-h-[30px] px-2 py-1 text-xs font-medium rounded-md transition-colors whitespace-nowrap cursor-pointer ${
+                    compression === opt.value
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <label className="min-h-[36px] flex items-center justify-between gap-2 text-xs text-slate-600 cursor-pointer select-none">
+            <span>Cloudinary Safe (&lt; 9.5 MB cap)</span>
+            <input
+              type="checkbox"
+              checked={cloudinarySafe}
+              onChange={(e) => onChangeCloudinarySafe(e.target.checked)}
+              className="w-4 h-4 accent-[#A90D18] rounded cursor-pointer"
+            />
+          </label>
 
           <button
             type="button"

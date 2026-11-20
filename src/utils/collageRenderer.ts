@@ -1,4 +1,10 @@
-import { CollageConfig, ExportFormat, ExportResolution, UploadedImage } from '../types/collage';
+import {
+  CollageConfig,
+  ExportCompression,
+  ExportFormat,
+  ExportResolution,
+  UploadedImage,
+} from '../types/collage';
 import { computeCollageLayout } from './collageLayout';
 
 function drawRoundedRectPath(
@@ -385,24 +391,18 @@ export async function renderCollageToCanvas(
   ctx.restore();
 }
 
-export async function exportCollageHD(
-  images: UploadedImage[],
-  config: CollageConfig,
-  resolution: ExportResolution,
-  format: ExportFormat
-): Promise<{ width: number; height: number; fileName: string }> {
-  if (images.length === 0) {
-    throw new Error('Upload at least one image before exporting.');
+const CLOUDINARY_SAFE_MAX_BYTES = 9.5 * 1024 * 1024; // 9.5 MB (under Cloudinary 10 MB limit)
+
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024 * 1024) {
+    return `${Math.max(1, Math.round(bytes / 1024))} KB`;
   }
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
 
-  const exportCanvas = document.createElement('canvas');
-  await renderCollageToCanvas(exportCanvas, images, config, resolution, 1);
-
-  const mimeType = format === 'png' ? 'image/png' : 'image/jpeg';
-  const quality = format === 'png' ? 1.0 : 0.98;
-
-  const blob = await new Promise<Blob>((resolve, reject) => {
-    exportCanvas.toBlob(
+function canvasToBlob(canvas: HTMLCanvasElement, mimeType: string, quality?: number): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
       (result) => {
         if (result) resolve(result);
         else reject(new Error('Canvas export returned an empty file.'));
@@ -411,14 +411,71 @@ export async function exportCollageHD(
       quality
     );
   });
+}
 
+export async function exportCollageHD(
+  images: UploadedImage[],
+  config: CollageConfig,
+  resolution: ExportResolution,
+  format: ExportFormat,
+  compression: ExportCompression = 'compact',
+  cloudinarySafe = true
+): Promise<{
+  width: number;
+  height: number;
+  fileName: string;
+  fileSizeBytes: number;
+  actualFormat: ExportFormat;
+}> {
+  if (images.length === 0) {
+    throw new Error('Upload at least one image before exporting.');
+  }
+
+  const exportCanvas = document.createElement('canvas');
+  await renderCollageToCanvas(exportCanvas, images, config, resolution, 1);
+
+  const mimeFor = (fmt: ExportFormat) =>
+    fmt === 'png' ? 'image/png' : fmt === 'webp' ? 'image/webp' : 'image/jpeg';
+
+  let targetFormat: ExportFormat = format;
+  let initialQuality = targetFormat === 'png' ? 1.0 : compression === 'compact' ? 0.86 : 0.92;
+  let blob = await canvasToBlob(exportCanvas, mimeFor(targetFormat), initialQuality);
+
+  // If browser doesn't support WebP canvas encoding and returned PNG, switch cleanly to JPEG
+  if (targetFormat === 'webp' && blob.type === 'image/png') {
+    targetFormat = 'jpeg';
+    blob = await canvasToBlob(exportCanvas, 'image/jpeg', initialQuality);
+  }
+
+  // Enforce Cloudinary 10MB safe ceiling when enabled
+  if (cloudinarySafe && blob.size > CLOUDINARY_SAFE_MAX_BYTES) {
+    if (targetFormat === 'png') {
+      // Lossless PNG exceeded 9.5 MB -> switch to sharp WebP (or JPEG fallback)
+      targetFormat = 'webp';
+      blob = await canvasToBlob(exportCanvas, 'image/webp', 0.90);
+      if (blob.type === 'image/png') {
+        targetFormat = 'jpeg';
+        blob = await canvasToBlob(exportCanvas, 'image/jpeg', 0.90);
+      }
+    }
+
+    if (blob.size > CLOUDINARY_SAFE_MAX_BYTES) {
+      const steps = [0.82, 0.76, 0.70, 0.64, 0.56];
+      for (const q of steps) {
+        blob = await canvasToBlob(exportCanvas, mimeFor(targetFormat), q);
+        if (blob.size <= CLOUDINARY_SAFE_MAX_BYTES) break;
+      }
+    }
+  }
+
+  const ext = targetFormat === 'png' ? 'png' : targetFormat === 'webp' ? 'webp' : 'jpg';
   const safeTitle =
     (config.title || 'maximalism-collage')
       .trim()
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '') || 'maximalism-collage';
-  const fileName = `${safeTitle}-${images.length}img-${exportCanvas.width}x${exportCanvas.height}.${format === 'png' ? 'png' : 'jpg'}`;
+  const fileName = `${safeTitle}-${images.length}img-${exportCanvas.width}x${exportCanvas.height}.${ext}`;
 
   const url = URL.createObjectURL(blob);
   try {
@@ -437,5 +494,7 @@ export async function exportCollageHD(
     width: exportCanvas.width,
     height: exportCanvas.height,
     fileName,
+    fileSizeBytes: blob.size,
+    actualFormat: targetFormat,
   };
 }

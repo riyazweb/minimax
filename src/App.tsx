@@ -17,12 +17,13 @@ import { ControlSidebar } from './components/ControlSidebar';
 import { TemplateSelector } from './components/TemplateSelector';
 import {
   CollageConfig,
+  ExportCompression,
   ExportFormat,
   ExportResolution,
   TemplateId,
   UploadedImage,
 } from './types/collage';
-import { exportCollageHD } from './utils/collageRenderer';
+import { exportCollageHD, formatFileSize } from './utils/collageRenderer';
 import { loadUploadedFiles } from './utils/imageLoader';
 import { generateSamplePosters } from './utils/samplePosters';
 
@@ -57,7 +58,9 @@ export default function App() {
   const [config, setConfig] = useState<CollageConfig>(DEFAULT_CONFIG);
   const [hasCustomTitle, setHasCustomTitle] = useState(false);
   const [resolution, setResolution] = useState<ExportResolution>(3200);
-  const [format, setFormat] = useState<ExportFormat>('png');
+  const [format, setFormat] = useState<ExportFormat>('webp');
+  const [compression, setCompression] = useState<ExportCompression>('compact');
+  const [cloudinarySafe, setCloudinarySafe] = useState<boolean>(true);
   const [isExporting, setIsExporting] = useState(false);
   const [isLoadingSamples, setIsLoadingSamples] = useState(false);
   const [exportSuccess, setExportSuccess] = useState<string | null>(null);
@@ -200,7 +203,9 @@ export default function App() {
     setHasCustomTitle(false);
     setConfig(DEFAULT_CONFIG);
     setResolution(3200);
-    setFormat('png');
+    setFormat('webp');
+    setCompression('compact');
+    setCloudinarySafe(true);
   };
 
   const handleExport = async () => {
@@ -209,8 +214,18 @@ export default function App() {
     setErrorMessage(null);
     setExportSuccess(null);
     try {
-      const result = await exportCollageHD(images, config, resolution, format);
-      setExportSuccess(`Downloaded ${result.width} × ${result.height} px ${format.toUpperCase()}`);
+      const result = await exportCollageHD(
+        images,
+        config,
+        resolution,
+        format,
+        compression,
+        cloudinarySafe
+      );
+      const sizeStr = formatFileSize(result.fileSizeBytes);
+      setExportSuccess(
+        `Saved ${result.width} × ${result.height} px ${result.actualFormat.toUpperCase()} (${sizeStr})`
+      );
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Export failed. Please try again.');
     } finally {
@@ -491,12 +506,16 @@ export default function App() {
                 config={config}
                 resolution={resolution}
                 format={format}
+                compression={compression}
+                cloudinarySafe={cloudinarySafe}
                 isExporting={isExporting}
                 exportSuccess={exportSuccess}
                 visibleSections="text-layout"
                 onChangeConfig={handleChangeConfig}
                 onChangeResolution={setResolution}
                 onChangeFormat={setFormat}
+                onChangeCompression={setCompression}
+                onChangeCloudinarySafe={setCloudinarySafe}
                 onExport={handleExport}
                 onResetSettings={handleResetSettings}
               />
@@ -508,12 +527,16 @@ export default function App() {
                 config={config}
                 resolution={resolution}
                 format={format}
+                compression={compression}
+                cloudinarySafe={cloudinarySafe}
                 isExporting={isExporting}
                 exportSuccess={exportSuccess}
                 visibleSections="export"
                 onChangeConfig={handleChangeConfig}
                 onChangeResolution={setResolution}
                 onChangeFormat={setFormat}
+                onChangeCompression={setCompression}
+                onChangeCloudinarySafe={setCloudinarySafe}
                 onExport={handleExport}
                 onResetSettings={handleResetSettings}
               />
@@ -527,12 +550,16 @@ export default function App() {
               config={config}
               resolution={resolution}
               format={format}
+              compression={compression}
+              cloudinarySafe={cloudinarySafe}
               isExporting={isExporting}
               exportSuccess={exportSuccess}
               visibleSections="all"
               onChangeConfig={handleChangeConfig}
               onChangeResolution={setResolution}
               onChangeFormat={setFormat}
+              onChangeCompression={setCompression}
+              onChangeCloudinarySafe={setCloudinarySafe}
               onExport={handleExport}
               onResetSettings={handleResetSettings}
             />
