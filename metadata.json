@@ -1,0 +1,6 @@
+{
+  "name": "Maximalism Collage Studio",
+  "description": "Create and export HD editorial poster collages with dynamic N-image layouts, crimson serif typography, and authentic postmark stamping.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
